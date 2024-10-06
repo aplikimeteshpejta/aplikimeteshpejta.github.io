@@ -1,9 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-JV59QLV387"></script>
+    <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-JV59QLV387');
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Take and Save a Picture (600x600 px with Guide Lines)</title>
+    <title>Take and Save a Picture</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -28,14 +36,16 @@
             height: auto;
         }
 
-        video {
+        video, img#capturedImage {
             width: 100%;
             max-width: 400px;
             height: auto;
-            border: 2px solid #ddd;
+            border: 4px solid #28a745;
             border-radius: 8px;
             margin-bottom: 10px;
-            transform: scaleX(-1); /* Flip the camera feed */
+            transition: border-color 0.3s;
+            /* Flip the camera horizontally */
+            transform: scaleX(-1);
         }
 
         canvas.overlay {
@@ -45,6 +55,19 @@
             width: 100%;
             height: 100%;
             pointer-events: none; /* Let mouse events pass through */
+        }
+
+        .flash-effect {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: white;
+            opacity: 0;
+            pointer-events: none;
+            z-index: 999;
+            transition: opacity 0.2s ease;
         }
 
         button {
@@ -68,28 +91,38 @@
             background-color: #007bff;
             display: none;
         }
+
+        a#downloadLink {
+            display: none;
+        }
     </style>
 </head>
 <body>
-    <h1>Take and Save a Picture (600x600 px with Guide Lines)</h1>
+    <h1>Take and Save a Picture</h1>
 
     <div class="camera-container">
         <video id="videoElement" autoplay playsinline></video>
+        <img id="capturedImage" style="display:none;" />
         <canvas id="overlayCanvas" class="overlay"></canvas>
+        <div id="flashEffect" class="flash-effect"></div>
     </div>
     
     <button id="captureButton">Take Picture</button>
     <button id="saveButton">Save Picture</button>
     <canvas id="canvasElement" style="display:none;"></canvas>
+    <a id="downloadLink" download="captured-image-600x600.png"></a>
 
     <script>
         const videoElement = document.getElementById('videoElement');
+        const capturedImage = document.getElementById('capturedImage');
         const canvasElement = document.getElementById('canvasElement');
         const captureButton = document.getElementById('captureButton');
         const saveButton = document.getElementById('saveButton');
+        const downloadLink = document.getElementById('downloadLink');
         const overlayCanvas = document.getElementById('overlayCanvas');
         const overlayContext = overlayCanvas.getContext('2d');
         const canvasContext = canvasElement.getContext('2d');
+        const flashEffect = document.getElementById('flashEffect');
         let imageDataUrl = '';
 
         // Access the camera
@@ -150,7 +183,16 @@
 
         // Capture the picture when button is clicked
         captureButton.addEventListener('click', () => {
-            // Set canvas size to 600x600
+            // Visual feedback - Flash effect and border color change
+            flashEffect.style.opacity = '1';
+            videoElement.style.borderColor = '#ff0000';  // Red border when capturing
+
+            // Fade the flash effect out after a short delay
+            setTimeout(() => {
+                flashEffect.style.opacity = '0';
+                videoElement.style.borderColor = '#28a745';  // Back to green after capture
+            }, 200);
+
             canvasElement.width = 600;
             canvasElement.height = 600;
 
@@ -160,20 +202,65 @@
             // Convert canvas content to an image data URL
             imageDataUrl = canvasElement.toDataURL('image/png');
 
+            // Temporarily hide the video element and show the captured image
+            videoElement.style.display = 'none';
+            capturedImage.src = imageDataUrl;
+            capturedImage.style.display = 'block';
+
+            // Show the captured image for 5 seconds
+            setTimeout(() => {
+                // After 5 seconds, hide the image and show the video feed again
+                capturedImage.style.display = 'none';
+                videoElement.style.display = 'block';
+            }, 5000);
+
             // Show the "Save Picture" button
             saveButton.style.display = 'inline';
         });
 
         // Save the image when the "Save Picture" button is clicked
-        saveButton.addEventListener('click', () => {
+        saveButton.addEventListener('click', async () => {
             if (imageDataUrl) {
-                // Create a download link element
-                const downloadLink = document.createElement('a');
-                downloadLink.href = imageDataUrl;
-                downloadLink.download = 'captured-image-600x600.png'; // Default name for the saved image
+                // Create a Blob from the image data URL
+                const byteString = atob(imageDataUrl.split(',')[1]);
+                const mimeString = imageDataUrl.split(',')[0].split(':')[1].split(';')[0];
+                const ab = new ArrayBuffer(byteString.length);
+                const ia = new Uint8Array(ab);
+                for (let i = 0; i < byteString.length; i++) {
+                    ia[i] = byteString.charCodeAt(i);
+                }
+                const blob = new Blob([ab], { type: mimeString });
 
-                // Programmatically trigger the download
-                downloadLink.click();
+                // Use the File System API if supported (Chrome/Edge only)
+                if (window.showSaveFilePicker) {
+                    try {
+                        // Show save dialog with suggested filename and file type
+                        const fileHandle = await window.showSaveFilePicker({
+                            suggestedName: 'captured-image-600x600.png',
+                            types: [{
+                                description: 'PNG Image',
+                                accept: { 'image/png': ['.png'] }
+                            }]
+                        });
+
+                        // Create a writable stream and write the blob
+                        const writable = await fileHandle.createWritable();
+                        await writable.write(blob);
+                        await writable.close();
+
+                        console.log('File saved successfully!');
+                    } catch (err) {
+                        console.error('Error during save:', err);
+                    }
+                } else {
+                    // Fallback for browsers that don't support File System API
+                    console.log("File System Access API not supported. Using fallback download method.");
+
+                    // Set up the download link and trigger a click
+                    downloadLink.href = imageDataUrl;
+                    downloadLink.download = 'captured-image-600x600.png';
+                    downloadLink.click();
+                }
             }
         });
     </script>
