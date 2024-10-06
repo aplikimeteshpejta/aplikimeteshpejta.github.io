@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Take and Save a Picture (600x600 px with Guide Lines)</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        h1 {
+            font-size: 1.5em;
+            text-align: center;
+        }
+
+        .camera-container {
+            position: relative;
+            width: 100%;
+            max-width: 400px;
+            height: auto;
+        }
+
+        video {
+            width: 100%;
+            max-width: 400px;
+            height: auto;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            transform: scaleX(-1); /* Flip the camera feed */
+        }
+
+        canvas.overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Let mouse events pass through */
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            font-size: 1.2em;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            max-width: 200px;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+        }
+
+        #saveButton {
+            background-color: #007bff;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>Take and Save a Picture (600x600 px with Guide Lines)</h1>
+
+    <div class="camera-container">
+        <video id="videoElement" autoplay playsinline></video>
+        <canvas id="overlayCanvas" class="overlay"></canvas>
+    </div>
+    
+    <button id="captureButton">Take Picture</button>
+    <button id="saveButton">Save Picture</button>
+    <canvas id="canvasElement" style="display:none;"></canvas>
+
+    <script>
+        const videoElement = document.getElementById('videoElement');
+        const canvasElement = document.getElementById('canvasElement');
+        const captureButton = document.getElementById('captureButton');
+        const saveButton = document.getElementById('saveButton');
+        const overlayCanvas = document.getElementById('overlayCanvas');
+        const overlayContext = overlayCanvas.getContext('2d');
+        const canvasContext = canvasElement.getContext('2d');
+        let imageDataUrl = '';
+
+        // Access the camera
+        navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+            .then((stream) => {
+                videoElement.srcObject = stream;
+
+                // Set canvas size equal to video size
+                videoElement.onloadedmetadata = () => {
+                    overlayCanvas.width = videoElement.videoWidth;
+                    overlayCanvas.height = videoElement.videoHeight;
+
+                    // Draw the guide lines based on the image you provided
+                    drawGuideLines();
+                };
+            })
+            .catch((err) => {
+                console.error("Error accessing the camera: ", err);
+            });
+
+        // Draw the guide lines on the overlay canvas
+        function drawGuideLines() {
+            const canvasWidth = overlayCanvas.width;
+            const canvasHeight = overlayCanvas.height;
+
+            // Calculate the y-coordinates for the horizontal lines
+            const topLineY = canvasHeight * 0.56;  // 56% from the top
+            const bottomLineY = canvasHeight * 0.69;  // 69% from the top
+
+            // Vertical center line
+            const centerX = canvasWidth / 2;
+
+            // Clear the previous content before drawing
+            overlayContext.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+            // Set line properties
+            overlayContext.strokeStyle = 'black';
+            overlayContext.lineWidth = 2;
+
+            // Draw the top horizontal line
+            overlayContext.beginPath();
+            overlayContext.moveTo(0, topLineY);
+            overlayContext.lineTo(canvasWidth, topLineY);
+            overlayContext.stroke();
+
+            // Draw the bottom horizontal line
+            overlayContext.beginPath();
+            overlayContext.moveTo(0, bottomLineY);
+            overlayContext.lineTo(canvasWidth, bottomLineY);
+            overlayContext.stroke();
+
+            // Draw the vertical center line
+            overlayContext.beginPath();
+            overlayContext.moveTo(centerX, 0);
+            overlayContext.lineTo(centerX, canvasHeight);
+            overlayContext.stroke();
+        }
+
+        // Capture the picture when button is clicked
+        captureButton.addEventListener('click', () => {
+            // Set canvas size to 600x600
+            canvasElement.width = 600;
+            canvasElement.height = 600;
+
+            // Draw the current video frame onto the canvas, scaling it to 600x600
+            canvasContext.drawImage(videoElement, 0, 0, 600, 600);
+
+            // Convert canvas content to an image data URL
+            imageDataUrl = canvasElement.toDataURL('image/png');
+
+            // Show the "Save Picture" button
+            saveButton.style.display = 'inline';
+        });
+
+        // Save the image when the "Save Picture" button is clicked
+        saveButton.addEventListener('click', () => {
+            if (imageDataUrl) {
+                // Create a download link element
+                const downloadLink = document.createElement('a');
+                downloadLink.href = imageDataUrl;
+                downloadLink.download = 'captured-image-600x600.png'; // Default name for the saved image
+
+                // Programmatically trigger the download
+                downloadLink.click();
+            }
+        });
+    </script>
+</body>
+</html>
