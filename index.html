@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-JV59QLV387"></script>
     <script>
@@ -26,7 +27,6 @@
     'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
     })(window,document,'script','dataLayer','GTM-NHVXL5D3');</script>
     <!-- End Google Tag Manager -->
-
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -55,7 +55,8 @@
             height: auto;
         }
 
-        video, img#capturedImage {
+        video,
+        img#capturedImage {
             width: 100%;
             max-width: 400px;
             height: auto;
@@ -63,8 +64,7 @@
             border-radius: 8px;
             margin-bottom: 10px;
             transition: border-color 0.3s;
-            /* Flip the camera horizontally */
-            transform: scaleX(-1);
+            transform: scaleX(-1); /* Flip the camera horizontally */
         }
 
         canvas.overlay {
@@ -73,7 +73,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            pointer-events: none; /* Let mouse events pass through */
+            pointer-events: none;
         }
 
         .flash-effect {
@@ -116,6 +116,7 @@
         }
     </style>
 </head>
+
 <body>
     <!-- Google Tag Manager (noscript) -->
     <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NHVXL5D3"
@@ -129,8 +130,9 @@
         <canvas id="overlayCanvas" class="overlay"></canvas>
         <div id="flashEffect" class="flash-effect"></div>
     </div>
-    
+
     <button id="captureButton">Take Picture</button>
+    <button id="switchButton">Switch Camera</button>
     <button id="saveButton">Save Picture</button>
     <canvas id="canvasElement" style="display:none;"></canvas>
     <a id="downloadLink" download="captured-image-600x600.png"></a>
@@ -140,6 +142,7 @@
         const capturedImage = document.getElementById('capturedImage');
         const canvasElement = document.getElementById('canvasElement');
         const captureButton = document.getElementById('captureButton');
+        const switchButton = document.getElementById('switchButton');
         const saveButton = document.getElementById('saveButton');
         const downloadLink = document.getElementById('downloadLink');
         const overlayCanvas = document.getElementById('overlayCanvas');
@@ -147,70 +150,73 @@
         const canvasContext = canvasElement.getContext('2d');
         const flashEffect = document.getElementById('flashEffect');
         let imageDataUrl = '';
+        let currentStream = null;
+        let usingFrontCamera = true;
 
-        // Access the camera
-        navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-            .then((stream) => {
-                videoElement.srcObject = stream;
+        // Function to start the camera with the selected facing mode
+        function startCamera(facingMode = 'user') {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
 
-                // Set canvas size equal to video size
-                videoElement.onloadedmetadata = () => {
-                    overlayCanvas.width = videoElement.videoWidth;
-                    overlayCanvas.height = videoElement.videoHeight;
-
-                    // Draw the guide lines based on the image you provided
-                    drawGuideLines();
-                };
+            navigator.mediaDevices.getUserMedia({
+                video: { facingMode: { ideal: facingMode } },  // 'user' is for front, 'environment' for rear
+                audio: false
             })
-            .catch((err) => {
-                console.error("Error accessing the camera: ", err);
-            });
+                .then((stream) => {
+                    currentStream = stream;
+                    videoElement.srcObject = stream;
+
+                    // Set canvas size equal to video size
+                    videoElement.onloadedmetadata = () => {
+                        overlayCanvas.width = videoElement.videoWidth;
+                        overlayCanvas.height = videoElement.videoHeight;
+                        drawGuideLines();  // Draw the guide lines
+                    };
+                })
+                .catch((err) => {
+                    console.error("Error accessing the camera: ", err);
+                });
+        }
+
+        // Start with the front camera initially
+        startCamera();
 
         // Draw the guide lines on the overlay canvas
         function drawGuideLines() {
             const canvasWidth = overlayCanvas.width;
             const canvasHeight = overlayCanvas.height;
 
-            // Calculate the y-coordinates for the horizontal lines
-            const topLineY = canvasHeight * 0.56;  // 56% from the top
-            const bottomLineY = canvasHeight * 0.69;  // 69% from the top
-
-            // Vertical center line
+            const middleLineY = canvasHeight * 0.4;  
+            const oneThirdLineY = canvasHeight * 0.10;
             const centerX = canvasWidth / 2;
 
-            // Clear the previous content before drawing
             overlayContext.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
 
-            // Set line properties
             overlayContext.strokeStyle = 'black';
             overlayContext.lineWidth = 2;
 
-            // Draw the top horizontal line
             overlayContext.beginPath();
-            overlayContext.moveTo(0, topLineY);
-            overlayContext.lineTo(canvasWidth, topLineY);
+            overlayContext.moveTo(0, middleLineY);
+            overlayContext.lineTo(canvasWidth, middleLineY);
             overlayContext.stroke();
 
-            // Draw the bottom horizontal line
             overlayContext.beginPath();
-            overlayContext.moveTo(0, bottomLineY);
-            overlayContext.lineTo(canvasWidth, bottomLineY);
+            overlayContext.moveTo(0, oneThirdLineY);
+            overlayContext.lineTo(canvasWidth, oneThirdLineY);
             overlayContext.stroke();
 
-            // Draw the vertical center line
             overlayContext.beginPath();
             overlayContext.moveTo(centerX, 0);
             overlayContext.lineTo(centerX, canvasHeight);
             overlayContext.stroke();
         }
 
-        // Capture the picture when button is clicked
+        // Capture the picture when the button is clicked
         captureButton.addEventListener('click', () => {
-            // Visual feedback - Flash effect and border color change
             flashEffect.style.opacity = '1';
             videoElement.style.borderColor = '#ff0000';  // Red border when capturing
 
-            // Fade the flash effect out after a short delay
             setTimeout(() => {
                 flashEffect.style.opacity = '0';
                 videoElement.style.borderColor = '#28a745';  // Back to green after capture
@@ -219,32 +225,31 @@
             canvasElement.width = 600;
             canvasElement.height = 600;
 
-            // Draw the current video frame onto the canvas, scaling it to 600x600
             canvasContext.drawImage(videoElement, 0, 0, 600, 600);
 
-            // Convert canvas content to an image data URL
             imageDataUrl = canvasElement.toDataURL('image/png');
 
-            // Temporarily hide the video element and show the captured image
             videoElement.style.display = 'none';
             capturedImage.src = imageDataUrl;
             capturedImage.style.display = 'block';
 
-            // Show the captured image for 5 seconds
             setTimeout(() => {
-                // After 5 seconds, hide the image and show the video feed again
                 capturedImage.style.display = 'none';
                 videoElement.style.display = 'block';
             }, 5000);
 
-            // Show the "Save Picture" button
             saveButton.style.display = 'inline';
         });
 
-        // Save the image when the "Save Picture" button is clicked
+        // Switch between front and rear cameras
+        switchButton.addEventListener('click', () => {
+            usingFrontCamera = !usingFrontCamera;
+            const facingMode = usingFrontCamera ? 'user' : 'environment';
+            startCamera(facingMode);
+        });
+
         saveButton.addEventListener('click', async () => {
             if (imageDataUrl) {
-                // Create a Blob from the image data URL
                 const byteString = atob(imageDataUrl.split(',')[1]);
                 const mimeString = imageDataUrl.split(',')[0].split(':')[1].split(';')[0];
                 const ab = new ArrayBuffer(byteString.length);
@@ -253,39 +258,17 @@
                     ia[i] = byteString.charCodeAt(i);
                 }
                 const blob = new Blob([ab], { type: mimeString });
+                const url = URL.createObjectURL(blob);
 
-                // Use the File System API if supported (Chrome/Edge only)
-                if (window.showSaveFilePicker) {
-                    try {
-                        // Show save dialog with suggested filename and file type
-                        const fileHandle = await window.showSaveFilePicker({
-                            suggestedName: 'captured-image-600x600.png',
-                            types: [{
-                                description: 'PNG Image',
-                                accept: { 'image/png': ['.png'] }
-                            }]
-                        });
+                downloadLink.href = url;
+                downloadLink.click();
 
-                        // Create a writable stream and write the blob
-                        const writable = await fileHandle.createWritable();
-                        await writable.write(blob);
-                        await writable.close();
-
-                        console.log('File saved successfully!');
-                    } catch (err) {
-                        console.error('Error during save:', err);
-                    }
-                } else {
-                    // Fallback for browsers that don't support File System API
-                    console.log("File System Access API not supported. Using fallback download method.");
-
-                    // Set up the download link and trigger a click
-                    downloadLink.href = imageDataUrl;
-                    downloadLink.download = 'captured-image-600x600.png';
-                    downloadLink.click();
-                }
+                setTimeout(() => {
+                    URL.revokeObjectURL(url);
+                }, 100);
             }
         });
     </script>
 </body>
+
 </html>
